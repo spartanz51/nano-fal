@@ -1,0 +1,28 @@
+{
+  "name": "nodeserver",
+  "version": "0.1.0",
+  "description": "Node server for Nano SDK",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "setup": "npm install"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fal-ai/client": "^1.6.1",
+    "@nanograph/sdk": "^0.1.16",
+    "dotenv": "^16.3.1",
+    "fast-glob": "^3.2.12",
+    "ws": "^8.13.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.16.0",
+    "@types/ws": "^8.5.5",
+    "tsx": "^3.12.7",
+    "typescript": "^5.0.4"
+  }
+}

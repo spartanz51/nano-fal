@@ -1,0 +1,9 @@
+{
+    "serverDisplayName": "Nano Fal AI",
+    "serverPackageId": "nano-fal-ai",
+    "language": "javascript",
+    "port": 3017,
+    "nodesPath": "src/nodes",
+    "autoWatch": true,
+    "watchDebounceTime": 1000
+}
