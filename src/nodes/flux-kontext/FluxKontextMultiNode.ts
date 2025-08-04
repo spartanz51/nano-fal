@@ -19,25 +19,25 @@ const nodeDef: NodeDefinition = {
     },
     {
       name: 'image1',
-      type: 'string',
+      type: 'asset:image',
       description: 'First image as asset URI',
       optional: true
     },
     {
       name: 'image2',
-      type: 'string',
+      type: 'asset:image',
       description: 'Second image as asset URI',
       optional: true
     },
     {
       name: 'image3',
-      type: 'string',
+      type: 'asset:image',
       description: 'Third image as asset URI',
       optional: true
     },
     {
       name: 'image4',
-      type: 'string',
+      type: 'asset:image',
       description: 'Fourth image as asset URI',
       optional: true
     }
@@ -45,7 +45,7 @@ const nodeDef: NodeDefinition = {
   outputs: [
     {
       name: 'image',
-      type: 'string',
+      type: 'asset:image',
       description: 'Generated image as data URL'
     }
   ],

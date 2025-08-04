@@ -19,15 +19,15 @@ const nodeDef: NodeDefinition = {
     },
     {
       name: 'image',
-      type: 'string',
-      description: 'Base64 encoded image to edit (optional)',
+      type: 'asset:image',
+      description: 'Image to edit (optional)',
       optional: true
     }
   ],
   outputs: [
     {
       name: 'image',
-      type: 'string',
+      type: 'asset:image',
       description: 'Generated image as data URL'
     }
   ],
@@ -67,8 +67,8 @@ const nodeDef: NodeDefinition = {
     {
       name: 'safety_tolerance',
       type: 'select',
-      value: '2',
-      default: '2',
+      value: '6',
+      default: '6',
       label: 'Safety Tolerance',
       description: 'Safety tolerance level (1-6, higher = more permissive)',
       options: [
@@ -139,7 +139,7 @@ falFluxKontextNode.execute = async ({ inputs, parameters, context }) => {
   const modelVersion = getParameterValue(parameters, 'model_version', 'max')
   const guidance_scale = getParameterValue(parameters, 'guidance_scale', 3.5)
   const num_images = getParameterValue(parameters, 'num_images', 1)
-  const safety_tolerance = getParameterValue(parameters, 'safety_tolerance', '2')
+  const safety_tolerance = getParameterValue(parameters, 'safety_tolerance', '6')
   const output_format = getParameterValue(parameters, 'output_format', 'jpeg')
   const aspect_ratio = getParameterValue(parameters, 'aspect_ratio', '1:1')
 
