@@ -20,7 +20,8 @@ const nodeDef: NodeDefinition = {
     {
       name: 'image',
       type: 'string',
-      description: 'Base64 encoded image to edit (optional)'
+      description: 'Base64 encoded image to edit (optional)',
+      optional: true
     }
   ],
   outputs: [

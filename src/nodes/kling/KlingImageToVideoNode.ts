@@ -25,6 +25,12 @@ const nodeDef: NodeDefinition = {
       description: 'Text prompt describing the video to generate'
     },
     {
+      name: 'negative_prompt',
+      type: 'string',
+      description: 'What to avoid in the generated video (optional)',
+      optional: true
+    },
+    {
       name: 'image',
       type: 'asset:image',
       description: 'Input image as asset URI'
@@ -59,14 +65,6 @@ const nodeDef: NodeDefinition = {
       description: 'How closely to follow the prompt (higher = more faithful)',
       min: 0.1,
       max: 2.0
-    },
-    {
-      name: 'negative_prompt',
-      type: 'text',
-      value: 'blur, distort, and low quality',
-      default: 'blur, distort, and low quality',
-      label: 'Negative Prompt',
-      description: 'What to avoid in the generated video'
     }
   ]
 }
@@ -78,6 +76,7 @@ klingImageToVideoNode.execute = async ({ inputs, parameters, context }) => {
   configureFalClient()
 
   const prompt = inputs.prompt?.[0] as string
+  const negative_prompt = inputs.negative_prompt?.[0] as string
   const image = inputs.image?.[0] as string
 
   if (!prompt) {
@@ -93,7 +92,6 @@ klingImageToVideoNode.execute = async ({ inputs, parameters, context }) => {
   // Get parameters
   const duration = getParameterValue(parameters, 'duration', '5')
   const cfg_scale = getParameterValue(parameters, 'cfg_scale', 0.5)
-  const negative_prompt = getParameterValue(parameters, 'negative_prompt', 'blur, distort, and low quality')
 
   context.sendStatus({ type: 'running', message: 'Starting video generation...' })
 
@@ -112,7 +110,7 @@ klingImageToVideoNode.execute = async ({ inputs, parameters, context }) => {
         image_url: imageDataUrl,
         duration,
         cfg_scale,
-        negative_prompt
+        negative_prompt: negative_prompt || 'blur, distort, and low quality'
       },
       logs: true,
       onQueueUpdate: (status: QueueStatus) => {

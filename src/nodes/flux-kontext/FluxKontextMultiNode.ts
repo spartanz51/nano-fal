@@ -20,22 +20,26 @@ const nodeDef: NodeDefinition = {
     {
       name: 'image1',
       type: 'string',
-      description: 'First image as asset URI'
+      description: 'First image as asset URI',
+      optional: true
     },
     {
       name: 'image2',
       type: 'string',
-      description: 'Second image as asset URI'
+      description: 'Second image as asset URI',
+      optional: true
     },
     {
       name: 'image3',
       type: 'string',
-      description: 'Third image as asset URI'
+      description: 'Third image as asset URI',
+      optional: true
     },
     {
       name: 'image4',
       type: 'string',
-      description: 'Fourth image as asset URI'
+      description: 'Fourth image as asset URI',
+      optional: true
     }
   ],
   outputs: [
