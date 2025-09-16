@@ -7,6 +7,9 @@ export * from './kling/index.js'
 // Seedream nodes
 export * from './seedream/index.js'
 
+// Seedance nodes
+export * from './seedance/index.js'
+
 // Gemini Flash nodes
 export * from './gemini-flash/index.js'
 
