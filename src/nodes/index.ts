@@ -15,3 +15,6 @@ export * from './gemini-flash/index.js'
 
 // Hunyuan3D nodes
 export * from './hunyuan3d/index.js'
+
+// Veo 3 nodes
+export * from './veo3/index.js'
