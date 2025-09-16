@@ -4,6 +4,9 @@ export * from './flux-kontext/index.js'
 // Kling nodes
 export * from './kling/index.js'
 
+// Seedream nodes
+export * from './seedream/index.js'
+
 // Gemini Flash nodes
 export * from './gemini-flash/index.js'
 
