@@ -3,6 +3,7 @@ import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { FalResponse } from '../../utils/image-utils.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
+import { createProgressStrategy } from '../../utils/progress-strategy.js'
 
 const nodeDef: NodeDefinition = {
   uid: 'fal-flux-kontext-multi',
@@ -181,39 +182,27 @@ falFluxKontextMultiNode.execute = async ({ inputs, parameters, context }) => {
     console.log('Sending request to Fal.ai with input:', JSON.stringify(input, null, 2))
 
     let stepCount = 0
+    const expectedMs = 25000
+    const strategy = createProgressStrategy({
+      expectedMs,
+      inQueueMessage: 'Waiting in queue...',
+      finalizingMessage: 'Finalizing...',
+      defaultInProgressMessage: (n) => `Processing step ${n}...`
+    })
     const result = await fal.subscribe('fal-ai/flux-pro/kontext/max/multi', {
       input,
       logs: true,
       onQueueUpdate: (status: QueueStatus) => {
         if (status.status === 'IN_QUEUE') {
-          context.sendStatus({ 
-            type: 'running', 
-            message: 'Waiting in queue...',
-            progress: { step: 0, total: 100 }
-          })
+          const r = strategy.onQueue()
+          context.sendStatus({ type: 'running', message: r.message, progress: r.progress })
         } else if (status.status === 'IN_PROGRESS') {
           stepCount++
-          const progress = Math.min(30 + (stepCount * 2), 80) // 30-80%
-          if ('logs' in status && status.logs) {
-            const lastLog = status.logs[status.logs.length - 1]
-            context.sendStatus({ 
-              type: 'running', 
-              message: lastLog?.message || `Processing step ${stepCount}...`,
-              progress: { step: progress, total: 100 }
-            })
-          } else {
-            context.sendStatus({ 
-              type: 'running', 
-              message: `Processing step ${stepCount}...`,
-              progress: { step: progress, total: 100 }
-            })
-          }
+          const r = strategy.onProgress(status, stepCount)
+          context.sendStatus({ type: 'running', message: r.message, progress: r.progress })
         } else if (status.status === 'COMPLETED') {
-          context.sendStatus({ 
-            type: 'running', 
-            message: 'Finalizing...',
-            progress: { step: 100, total: 100 }
-          })
+          const r = strategy.onCompleted()
+          context.sendStatus({ type: 'running', message: r.message, progress: r.progress })
         }
       }
     }) as FalResponse

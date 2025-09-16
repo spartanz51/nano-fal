@@ -2,6 +2,7 @@ import { NanoSDK, NodeDefinition, NodeInstance, resolveAsset, uploadAsset } from
 import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
+import { createProgressStrategy } from '../../utils/progress-strategy.js'
 
 interface GeminiFlashEditMultiResponse {
   data: {
@@ -117,6 +118,13 @@ geminiFlashEditMultiNode.execute = async ({ inputs, parameters, context }) => {
     console.log(`Converted ${inputImageUrls.length} input images to data URLs`)
 
     let stepCount = 0
+    const expectedMs = 25000
+    const strategy = createProgressStrategy({
+      expectedMs,
+      inQueueMessage: 'Waiting in queue...',
+      finalizingMessage: 'Finalizing...',
+      defaultInProgressMessage: (n) => `Processing step ${n}...`
+    })
     const result = await fal.subscribe('fal-ai/gemini-flash-edit/multi', {
       input: {
         prompt,
@@ -125,34 +133,17 @@ geminiFlashEditMultiNode.execute = async ({ inputs, parameters, context }) => {
       logs: true,
       onQueueUpdate: (status: QueueStatus) => {
         if (status.status === 'IN_QUEUE') {
-          context.sendStatus({ 
-            type: 'running', 
-            message: 'Waiting in queue...',
-            progress: { step: 30, total: 100 }
-          })
+          const r = strategy.onQueue()
+          // Keep pre-processing indication (we used ~20% for inputs) if larger
+          const start = Math.max(30, r.progress.step)
+          context.sendStatus({ type: 'running', message: r.message, progress: { step: start, total: 100 } })
         } else if (status.status === 'IN_PROGRESS') {
           stepCount++
-          const progress = Math.min(40 + (stepCount * 3), 80) // 40-80%
-          if ('logs' in status && status.logs) {
-            const lastLog = status.logs[status.logs.length - 1]
-            context.sendStatus({ 
-              type: 'running', 
-              message: lastLog?.message || `Processing step ${stepCount}...`,
-              progress: { step: progress, total: 100 }
-            })
-          } else {
-            context.sendStatus({ 
-              type: 'running', 
-              message: `Processing step ${stepCount}...`,
-              progress: { step: progress, total: 100 }
-            })
-          }
+          const r = strategy.onProgress(status, stepCount)
+          context.sendStatus({ type: 'running', message: r.message, progress: r.progress })
         } else if (status.status === 'COMPLETED') {
-          context.sendStatus({ 
-            type: 'running', 
-            message: 'Finalizing...',
-            progress: { step: 100, total: 100 }
-          })
+          const r = strategy.onCompleted()
+          context.sendStatus({ type: 'running', message: r.message, progress: r.progress })
         }
       }
     }) as GeminiFlashEditMultiResponse

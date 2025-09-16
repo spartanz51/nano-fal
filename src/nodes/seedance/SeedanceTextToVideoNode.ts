@@ -2,6 +2,7 @@ import { NanoSDK, NodeDefinition, NodeInstance, uploadAsset } from '@nanograph/s
 import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
+import { createSeedanceProgressStrategy } from './progress.js'
 
 interface SeedanceVideoResponse {
   data?: {
@@ -193,33 +194,21 @@ seedanceTextToVideoNode.execute = async ({ inputs, parameters, context }) => {
 
   try {
     let stepCount = 0
+    const strategy = createSeedanceProgressStrategy({ durationSec: Number(duration), resolution })
     const result = await fal.subscribe(endpoint, {
       input: requestPayload,
       logs: true,
       onQueueUpdate: (status: QueueStatus) => {
         if (status.status === 'IN_QUEUE') {
-          context.sendStatus({
-            type: 'running',
-            message: 'Waiting in queue...',
-            progress: { step: 5, total: 100 }
-          })
+          const r = strategy.onQueue()
+          context.sendStatus({ type: 'running', message: r.message, progress: r.progress })
         } else if (status.status === 'IN_PROGRESS') {
           stepCount += 1
-          const progressStep = Math.min(15 + stepCount * 3, 90)
-          const logMessage = 'logs' in status && status.logs?.length
-            ? status.logs[status.logs.length - 1]?.message
-            : undefined
-          context.sendStatus({
-            type: 'running',
-            message: logMessage || `Processing step ${stepCount}...`,
-            progress: { step: progressStep, total: 100 }
-          })
+          const r = strategy.onProgress(status, stepCount)
+          context.sendStatus({ type: 'running', message: r.message, progress: r.progress })
         } else if (status.status === 'COMPLETED') {
-          context.sendStatus({
-            type: 'running',
-            message: 'Finalizing video...',
-            progress: { step: 100, total: 100 }
-          })
+          const r = strategy.onCompleted()
+          context.sendStatus({ type: 'running', message: r.message, progress: r.progress })
         }
       }
     }) as SeedanceVideoResponse

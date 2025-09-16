@@ -2,6 +2,7 @@ import { NanoSDK, NodeDefinition, NodeInstance, resolveAsset, uploadAsset } from
 import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
+import { createProgressStrategy } from '../../utils/progress-strategy.js'
 
 interface SeedreamEditResponse {
   data: {
@@ -236,39 +237,31 @@ seedreamEditNode.execute = async ({ inputs, parameters, context }) => {
     }
 
     let stepCount = 0
+    const perImageMs = 6000
+    const sizeFactor = Math.max(imageWidth * imageHeight, 1024 * 1024) / (1024 * 1024)
+    const expectedMs = Math.min(180000, Math.max(20000, Math.floor(numImages * perImageMs * sizeFactor)))
+    const strategy = createProgressStrategy({
+      expectedMs,
+      inQueueMessage: 'Waiting in queue...',
+      finalizingMessage: 'Finalizing...',
+      defaultInProgressMessage: (n) => `Processing step ${n}...`
+    })
     const result = await fal.subscribe('fal-ai/bytedance/seedream/v4/edit', {
       input: requestPayload,
       logs: true,
       onQueueUpdate: (status: QueueStatus) => {
         if (status.status === 'IN_QUEUE') {
-          context.sendStatus({
-            type: 'running',
-            message: 'Waiting in queue...',
-            progress: { step: 40, total: 100 }
-          })
+          const r = strategy.onQueue()
+          // Keep pre-processing progress when entering queue after uploads
+          const startStep = Math.max(40, r.progress.step)
+          context.sendStatus({ type: 'running', message: r.message, progress: { step: startStep, total: 100 } })
         } else if (status.status === 'IN_PROGRESS') {
           stepCount++
-          const progress = Math.min(45 + stepCount * 3, 90)
-          if ('logs' in status && status.logs?.length) {
-            const lastLog = status.logs[status.logs.length - 1]
-            context.sendStatus({
-              type: 'running',
-              message: lastLog?.message || `Processing step ${stepCount}...`,
-              progress: { step: progress, total: 100 }
-            })
-          } else {
-            context.sendStatus({
-              type: 'running',
-              message: `Processing step ${stepCount}...`,
-              progress: { step: progress, total: 100 }
-            })
-          }
+          const r = strategy.onProgress(status, stepCount)
+          context.sendStatus({ type: 'running', message: r.message, progress: r.progress })
         } else if (status.status === 'COMPLETED') {
-          context.sendStatus({
-            type: 'running',
-            message: 'Finalizing...',
-            progress: { step: 100, total: 100 }
-          })
+          const r = strategy.onCompleted()
+          context.sendStatus({ type: 'running', message: r.message, progress: r.progress })
         }
       }
     }) as SeedreamEditResponse
