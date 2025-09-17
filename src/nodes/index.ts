@@ -7,6 +7,9 @@ export * from './kling/index.js'
 // Seedream nodes
 export * from './seedream/index.js'
 
+// Nano Banana nodes
+export * from './nano-banana/index.js'
+
 // Seedance nodes
 export * from './seedance/index.js'
 
