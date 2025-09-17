@@ -24,3 +24,6 @@ export * from './hunyuan3d/index.js'
 
 // Veo 3 nodes
 export * from './veo3/index.js'
+
+// Moondream 2 nodes
+export * from './moondream2/index.js'
