@@ -1,4 +1,4 @@
-import { NanoSDK, NodeDefinition, NodeInstance, resolveAsset, uploadAsset } from '@nanograph/sdk'
+import { NanoSDK, NodeDefinition, NodeInstance, uploadAsset } from '@nanograph/sdk'
 import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { createProgressStrategy } from '../../utils/progress-strategy.js'
@@ -33,75 +33,18 @@ const ensureOption = <T extends string>(value: unknown, options: readonly T[], f
   return fallback
 }
 
-const detectImageFormat = (buffer: Buffer): 'jpeg' | 'png' | 'webp' => {
-  if (buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
-    return 'jpeg'
-  }
-  if (
-    buffer.length > 8 &&
-    buffer[0] === 0x89 &&
-    buffer[1] === 0x50 &&
-    buffer[2] === 0x4e &&
-    buffer[3] === 0x47 &&
-    buffer[4] === 0x0d &&
-    buffer[5] === 0x0a &&
-    buffer[6] === 0x1a &&
-    buffer[7] === 0x0a
-  ) {
-    return 'png'
-  }
-  if (
-    buffer.length > 12 &&
-    buffer[0] === 0x52 &&
-    buffer[1] === 0x49 &&
-    buffer[2] === 0x46 &&
-    buffer[3] === 0x46 &&
-    buffer[8] === 0x57 &&
-    buffer[9] === 0x45 &&
-    buffer[10] === 0x42 &&
-    buffer[11] === 0x50
-  ) {
-    return 'webp'
-  }
-  return 'jpeg'
-}
-
 const nodeDefinition: NodeDefinition = {
-  uid: 'fal-flux-kontext-multi',
-  name: 'Flux Kontext Multi-Image Edit',
-  category: 'Image Editing',
-  version: '1.1.0',
+  uid: 'fal-flux-kontext-text-to-image',
+  name: 'Flux Kontext Text to Image',
+  category: 'Image Generation',
+  version: '1.0.0',
   type: 'server',
-  description: 'Blends multiple reference images using Fal.ai Flux Kontext multi-image models',
+  description: 'Generates images from text prompts using Fal.ai Flux Kontext text-to-image models',
   inputs: [
     {
       name: 'prompt',
       type: 'string',
-      description: 'Text prompt describing how to combine or edit the images'
-    },
-    {
-      name: 'image1',
-      type: 'asset:image',
-      description: 'First reference image (required if others are empty)',
-      optional: true
-    },
-    {
-      name: 'image2',
-      type: 'asset:image',
-      description: 'Second reference image',
-      optional: true
-    },
-    {
-      name: 'image3',
-      type: 'asset:image',
-      description: 'Third reference image',
-      optional: true
-    },
-    {
-      name: 'image4',
-      type: 'asset:image',
-      description: 'Fourth reference image',
-      optional: true
+      description: 'Text prompt describing the image to generate'
     }
   ],
   outputs: [
@@ -123,10 +66,10 @@ const nodeDefinition: NodeDefinition = {
       value: 'max',
       default: 'max',
       label: 'Model Version',
-      description: 'Choose between Flux Kontext Pro Multi or Flux Kontext Max Multi',
+      description: 'Choose between Flux Kontext Pro or Flux Kontext Max text-to-image models',
       options: [
-        { label: 'Flux Kontext Pro Multi', value: 'pro' },
-        { label: 'Flux Kontext Max Multi', value: 'max' }
+        { label: 'Flux Kontext Pro', value: 'pro' },
+        { label: 'Flux Kontext Max', value: 'max' }
       ]
     },
     {
@@ -217,27 +160,16 @@ const nodeDefinition: NodeDefinition = {
   ]
 }
 
-const fluxKontextMultiNode: NodeInstance = NanoSDK.registerNode(nodeDefinition)
+const fluxKontextTextToImageNode: NodeInstance = NanoSDK.registerNode(nodeDefinition)
 
-fluxKontextMultiNode.execute = async ({ inputs, parameters, context }) => {
+fluxKontextTextToImageNode.execute = async ({ inputs, parameters, context }) => {
   configureFalClient()
 
   const prompt = inputs.prompt?.[0] as string
-  const imageUris = [
-    inputs.image1?.[0] as string | undefined,
-    inputs.image2?.[0] as string | undefined,
-    inputs.image3?.[0] as string | undefined,
-    inputs.image4?.[0] as string | undefined,
-  ].filter((uri): uri is string => typeof uri === 'string' && uri.length > 0)
 
   if (!prompt) {
     context.sendStatus({ type: 'error', message: 'Prompt is required' })
     throw new Error('Prompt is required')
-  }
-
-  if (imageUris.length === 0) {
-    context.sendStatus({ type: 'error', message: 'At least one reference image is required' })
-    throw new Error('At least one reference image is required')
   }
 
   const modelVersion = ensureOption(getParameterValue(parameters, 'model_version', 'max'), MODEL_OPTIONS, 'max')
@@ -252,15 +184,6 @@ fluxKontextMultiNode.execute = async ({ inputs, parameters, context }) => {
   const seedValue = Number(getParameterValue(parameters, 'seed', -1))
   const seed = Number.isInteger(seedValue) && seedValue >= 0 ? seedValue : undefined
 
-  context.sendStatus({ type: 'running', message: 'Preparing reference images...' })
-
-  const imageDataUrls = await Promise.all(imageUris.map(async (uri) => {
-    const buffer = await resolveAsset(uri, { asBuffer: true }) as Buffer
-    const format = detectImageFormat(buffer)
-    const base64 = buffer.toString('base64')
-    return `data:image/${format};base64,${base64}`
-  }))
-
   const payload: Record<string, unknown> = {
     prompt,
     guidance_scale: guidanceScale,
@@ -269,8 +192,7 @@ fluxKontextMultiNode.execute = async ({ inputs, parameters, context }) => {
     safety_tolerance: safetyTolerance,
     aspect_ratio: aspectRatio,
     sync_mode: syncMode,
-    enhance_prompt: enhancePrompt,
-    image_urls: imageDataUrls
+    enhance_prompt: enhancePrompt
   }
 
   if (typeof seed === 'number') {
@@ -278,13 +200,12 @@ fluxKontextMultiNode.execute = async ({ inputs, parameters, context }) => {
   }
 
   const endpoint = modelVersion === 'max'
-    ? 'fal-ai/flux-pro/kontext/max/multi'
-    : 'fal-ai/flux-pro/kontext/multi'
+    ? 'fal-ai/flux-pro/kontext/max/text-to-image'
+    : 'fal-ai/flux-pro/kontext/text-to-image'
 
-  const baseMs = modelVersion === 'max' ? 42000 : 32000
+  const baseMs = modelVersion === 'max' ? 34000 : 24000
   const syncFactor = syncMode ? 1.2 : 1
-  const imageFactor = Math.max(1, imageUris.length / 2)
-  const expectedMs = Math.min(150000, Math.max(20000, Math.floor(baseMs * imageFactor * syncFactor)))
+  const expectedMs = Math.min(120000, Math.max(18000, Math.floor(baseMs * numImages * syncFactor)))
 
   const strategy = createProgressStrategy({
     expectedMs,
@@ -320,7 +241,7 @@ fluxKontextMultiNode.execute = async ({ inputs, parameters, context }) => {
     const images: FluxKontextImage[] = directImages.length ? directImages : dataImages
 
     if (!images.length) {
-      throw new Error('No images were returned by the Flux Kontext multi-image API')
+      throw new Error('No images were returned by the Flux Kontext text-to-image API')
     }
 
     const uploadedImages = await Promise.all(images.map(async (image: FluxKontextImage) => {
@@ -355,4 +276,4 @@ fluxKontextMultiNode.execute = async ({ inputs, parameters, context }) => {
   }
 }
 
-export default fluxKontextMultiNode
+export default fluxKontextTextToImageNode
