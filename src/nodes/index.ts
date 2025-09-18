@@ -4,6 +4,9 @@ export * from './flux-kontext/index.js'
 // Flux SRPO nodes
 export * from './flux-srpo/index.js'
 
+// Flux Pro nodes
+export * from './flux-pro/index.js'
+
 // Kling nodes
 export * from './kling/index.js'
 
