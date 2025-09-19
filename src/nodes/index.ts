@@ -7,6 +7,9 @@ export * from './flux-srpo/index.js'
 // Flux Pro nodes
 export * from './flux-pro/index.js'
 
+// Flux-1 Krea nodes
+export * from './flux-1/index.js'
+
 // Kling nodes
 export * from './kling/index.js'
 

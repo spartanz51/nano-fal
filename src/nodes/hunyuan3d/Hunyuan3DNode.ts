@@ -34,7 +34,7 @@ const nodeDef: NodeDefinition = {
   outputs: [
     {
       name: 'model_mesh',
-      type: 'asset:file',
+      type: 'asset:mesh',
       description: 'Generated 3D model (GLB) uploaded as asset URI'
     }
   ],
@@ -170,7 +170,7 @@ hunyuan3DNode.execute = async ({ inputs, parameters, context }) => {
     const filename = ensureGlb(apiFileName || fallbackName)
     const contentType = result.data.model_mesh.content_type || 'model/gltf-binary'
 
-    const uploadOptions: any = { type: 'file', filename, contentType }
+    const uploadOptions: any = { type: 'mesh', filename, contentType }
     const uploadResult = await uploadAsset(buffer, uploadOptions)
 
     if (!(uploadResult as any).uri) {
@@ -187,5 +187,4 @@ hunyuan3DNode.execute = async ({ inputs, parameters, context }) => {
 }
 
 export default hunyuan3DNode
-
 
