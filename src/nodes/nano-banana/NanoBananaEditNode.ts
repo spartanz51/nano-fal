@@ -1,3 +1,4 @@
+import { File } from 'node:buffer'
 import { NanoSDK, NodeDefinition, NodeInstance, resolveAsset, uploadAsset } from '@nanograph/sdk'
 import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
@@ -204,25 +205,36 @@ nanoBananaEditNode.execute = async ({ inputs, parameters, context }) => {
   context.sendStatus({ type: 'running', message: 'Preparing input images...' })
 
   try {
-    const imageDataUrls: string[] = []
+    const imageUrls: string[] = []
+
+    type FalStorageUploadInput = Parameters<typeof fal.storage.upload>[0]
 
     for (let index = 0; index < imageInputs.length; index++) {
       const assetUri = imageInputs[index]
       const buffer: Buffer = await resolveAsset(assetUri, { asBuffer: true }) as Buffer
       const format = detectImageFormat(buffer)
-      const base64 = buffer.toString('base64')
-      imageDataUrls.push(`data:image/${format};base64,${base64}`)
+      const mimeType = format === 'jpeg' ? 'image/jpeg' : format === 'png' ? 'image/png' : `image/${format}`
+      const extension = format === 'jpeg' ? 'jpg' : format
+      const filename = `reference-${index + 1}.${extension}`
+      const file = new File([buffer], filename, { type: mimeType })
+      const uploadedUrl = await fal.storage.upload(file as unknown as FalStorageUploadInput)
+
+      if (!uploadedUrl) {
+        throw new Error(`Fal storage upload failed for reference image ${index + 1}`)
+      }
+
+      imageUrls.push(uploadedUrl)
 
       context.sendStatus({
         type: 'running',
-        message: `Processed reference image ${index + 1}/${imageInputs.length}`,
+        message: `Uploaded reference image ${index + 1}/${imageInputs.length}`,
         progress: { step: Math.min(10 + (index + 1) * 5, 40), total: 100 }
       })
     }
 
     const requestPayload = {
       prompt,
-      image_urls: imageDataUrls,
+      image_urls: imageUrls,
       num_images: numImages,
       output_format: outputFormat,
       sync_mode: syncMode,
