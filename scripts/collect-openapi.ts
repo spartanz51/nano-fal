@@ -32,18 +32,22 @@ if (endpointSegments.length < 2) {
   process.exit(1);
 }
 
+console.log(`Fetching page: ${rawUrl}`);
 const response = await fetch(rawUrl, {
   headers: {
     'user-agent': 'Mozilla/5.0 (compatible; FalOpenApiCollector/1.0)'
   }
 });
 
+console.log(`Response status: ${response.status} ${response.statusText}`);
 if (!response.ok) {
   console.error(`Failed to load ${rawUrl}: ${response.status} ${response.statusText}`);
   process.exit(1);
 }
 
 const html = await response.text();
+console.log(`HTML length: ${html.length} characters`);
+
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const extractModeCandidates = (markup: string): string[] => {
@@ -112,12 +116,35 @@ const computeFamilyPrefix = (candidates: string[]): string => {
 };
 
 const modeCandidates = extractModeCandidates(html);
+console.log(`Found ${modeCandidates.length} mode candidates:`, modeCandidates);
+
+// Fallback: look for direct OpenAPI links in HTML
+const extractOpenApiLinks = (markup: string): string[] => {
+  // Look for both absolute and relative OpenAPI URLs
+  const absolutePattern = /https:\/\/fal\.ai\/api\/openapi\/queue\/openapi\.json\?endpoint_id=([^"'\s]+)/g;
+  const relativePattern = /href="\/api\/openapi\/queue\/openapi\.json\?endpoint_id=([^"'\s]+)"/g;
+  
+  const absoluteMatches = Array.from(markup.matchAll(absolutePattern));
+  const relativeMatches = Array.from(markup.matchAll(relativePattern));
+  
+  const absoluteLinks = absoluteMatches.map(match => match[1]);
+  const relativeLinks = relativeMatches.map(match => match[1]);
+  
+  return [...absoluteLinks, ...relativeLinks];
+};
+
+const openApiLinks = extractOpenApiLinks(html);
+console.log(`Found ${openApiLinks.length} OpenAPI links:`, openApiLinks);
 
 let filteredCandidates: string[] = [];
 let resolvedFamilyPrefix = '';
 
 if (modeCandidates.length > 0) {
   filteredCandidates = modeCandidates;
+} else if (openApiLinks.length > 0) {
+  // Use direct OpenAPI links as fallback
+  filteredCandidates = openApiLinks;
+  console.log(`Using OpenAPI links as fallback: ${filteredCandidates.join(', ')}`);
 } else {
   let collectedCandidates: string[] = [];
   const maxSuffixLength = Math.min(3, endpointSegments.length - 1);
@@ -148,6 +175,7 @@ if (modeCandidates.length > 0) {
 
   if (collectedCandidates.length === 0) {
     console.error('No related endpoints found in the page. Fal may have changed the layout.');
+    console.log('HTML snippet:', html.substring(0, 1000));
     process.exit(1);
   }
 
