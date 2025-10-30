@@ -3,6 +3,7 @@ import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
 import { createProgressStrategy } from '../../utils/progress-strategy.js'
+import { uploadBufferToFal } from '../../utils/fal-storage.js'
 
 interface SeedreamEditResponse {
   data: {
@@ -202,26 +203,25 @@ seedreamEditNode.execute = async ({ inputs, parameters, context }) => {
   context.sendStatus({ type: 'running', message: 'Preparing input images...' })
 
   try {
-    const imageDataUrls: string[] = []
+    const imageUrls: string[] = []
 
     for (let i = 0; i < inputImages.length; i++) {
       const assetUri = inputImages[i]
       const buffer: Buffer = await resolveAsset(assetUri, { asBuffer: true }) as Buffer
       const format = detectImageFormat(buffer)
-      const base64 = buffer.toString('base64')
-      const dataUrl = `data:image/${format};base64,${base64}`
-      imageDataUrls.push(dataUrl)
+      const uploadedUrl = await uploadBufferToFal(buffer, format, { filenamePrefix: `seedream-input-${i + 1}` })
+      imageUrls.push(uploadedUrl)
 
       context.sendStatus({
         type: 'running',
-        message: `Processed image ${i + 1}/${inputImages.length}`,
+        message: `Uploaded image ${i + 1}/${inputImages.length}`,
         progress: { step: Math.min(10 + (i + 1) * 5, 40), total: 100 }
       })
     }
 
     const requestPayload: any = {
       prompt,
-      image_urls: imageDataUrls,
+      image_urls: imageUrls,
       image_size: {
         width: imageWidth,
         height: imageHeight

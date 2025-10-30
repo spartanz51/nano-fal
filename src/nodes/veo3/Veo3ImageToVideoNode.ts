@@ -3,6 +3,7 @@ import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
 import { createProgressStrategy } from '../../utils/progress-strategy.js'
+import { uploadBufferToFal } from '../../utils/fal-storage.js'
 
 interface Veo3ImageToVideoResponse {
   data?: {
@@ -52,10 +53,9 @@ const detectImageMime = (buffer: Buffer): string => {
   return 'jpeg'
 }
 
-const bufferToDataUrl = (buffer: Buffer): string => {
+const uploadBufferAsImageUrl = async (buffer: Buffer, filenamePrefix: string): Promise<string> => {
   const format = detectImageMime(buffer)
-  const base64 = buffer.toString('base64')
-  return `data:image/${format};base64,${base64}`
+  return uploadBufferToFal(buffer, format, { filenamePrefix })
 }
 
 const nodeDefinition: NodeDefinition = {
@@ -178,7 +178,7 @@ veo3ImageToVideoNode.execute = async ({ inputs, parameters, context }) => {
   context.sendStatus({ type: 'running', message: 'Preparing image for Veo 3 animation...' })
 
   const imageBuffer = await resolveAsset(imageUri, { asBuffer: true }) as Buffer
-  const imageDataUrl = bufferToDataUrl(imageBuffer)
+  const imageUrl = await uploadBufferAsImageUrl(imageBuffer, 'veo3-source')
 
   const endpoint = modelVariant === 'fast'
     ? 'fal-ai/veo3/fast/image-to-video'
@@ -186,7 +186,7 @@ veo3ImageToVideoNode.execute = async ({ inputs, parameters, context }) => {
 
   const payload = {
     prompt,
-    image_url: imageDataUrl,
+    image_url: imageUrl,
     aspect_ratio,
     resolution,
     duration,

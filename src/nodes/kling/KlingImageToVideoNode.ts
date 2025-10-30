@@ -3,6 +3,7 @@ import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
 import { createProgressStrategy } from '../../utils/progress-strategy.js'
+import { uploadBufferToFal } from '../../utils/fal-storage.js'
 
 interface KlingVideoResponse {
   data: {
@@ -99,10 +100,9 @@ klingImageToVideoNode.execute = async ({ inputs, parameters, context }) => {
   try {
     // Resolve input image asset
     const imageBuffer: Buffer = await resolveAsset(image, { asBuffer: true }) as Buffer
-    const imageBase64 = imageBuffer.toString('base64')
-    const imageDataUrl = `data:image/jpeg;base64,${imageBase64}`
+    const imageUrl = await uploadBufferToFal(imageBuffer, 'jpeg', { filenamePrefix: 'kling-source' })
 
-    console.log('Converted input image to data URL (length:', imageDataUrl.length, ')')
+    console.log('Uploaded input image to Fal storage:', imageUrl)
 
     let stepCount = 0
     const expectedMs = Number(duration) === 10 ? 90000 : 60000
@@ -115,7 +115,7 @@ klingImageToVideoNode.execute = async ({ inputs, parameters, context }) => {
     const result = await fal.subscribe('fal-ai/kling-video/v2.1/master/image-to-video', {
       input: {
         prompt,
-        image_url: imageDataUrl,
+        image_url: imageUrl,
         duration,
         cfg_scale,
         negative_prompt: negative_prompt || 'blur, distort, and low quality'

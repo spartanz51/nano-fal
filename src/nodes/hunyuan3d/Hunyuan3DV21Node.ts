@@ -3,6 +3,7 @@ import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
 import { createProgressStrategy } from '../../utils/progress-strategy.js'
+import { uploadBufferToFal } from '../../utils/fal-storage.js'
 
 interface Hunyuan3DV21Response {
   data: {
@@ -135,8 +136,7 @@ hunyuan3DV21Node.execute = async ({ inputs, parameters, context }) => {
   try {
     // Resolve input image asset and convert to data URL
     const imageBuffer: Buffer = await resolveAsset(image, { asBuffer: true }) as Buffer
-    const imageBase64 = imageBuffer.toString('base64')
-    const imageDataUrl = `data:image/jpeg;base64,${imageBase64}`
+    const imageUrl = await uploadBufferToFal(imageBuffer, 'jpeg', { filenamePrefix: 'hunyuan3d-v21-source' })
 
     let stepCount = 0
     const expectedMs = 90000
@@ -148,7 +148,7 @@ hunyuan3DV21Node.execute = async ({ inputs, parameters, context }) => {
     })
     const result = await fal.subscribe('fal-ai/hunyuan3d-v21', {
       input: {
-        input_image_url: imageDataUrl,
+        input_image_url: imageUrl,
         num_inference_steps: Number(num_inference_steps),
         guidance_scale: Number(guidance_scale),
         octree_resolution: Number(octree_resolution),

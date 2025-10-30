@@ -3,6 +3,7 @@ import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
 import { createProgressStrategy } from '../../utils/progress-strategy.js'
+import { uploadBufferToFal } from '../../utils/fal-storage.js'
 
 interface FluxSrpoImage {
   url?: string
@@ -236,12 +237,11 @@ fluxSrpoImageToImageNode.execute = async ({ inputs, parameters, context }) => {
 
   const buffer = await resolveAsset(imageUri, { asBuffer: true }) as Buffer
   const detectedFormat = detectImageFormat(buffer)
-  const base64 = buffer.toString('base64')
-  const dataUrl = `data:image/${detectedFormat};base64,${base64}`
+  const imageUrl = await uploadBufferToFal(buffer, detectedFormat, { filenamePrefix: 'flux-srpo-source' })
 
   const payload: any = {
     prompt,
-    image_url: dataUrl,
+    image_url: imageUrl,
     strength,
     num_inference_steps: numInferenceSteps,
     guidance_scale: guidanceScale,

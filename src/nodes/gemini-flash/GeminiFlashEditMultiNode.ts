@@ -3,19 +3,55 @@ import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
 import { createProgressStrategy } from '../../utils/progress-strategy.js'
+import { uploadBufferToFal } from '../../utils/fal-storage.js'
+
+const detectImageFormat = (buffer: Buffer): string => {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'jpeg'
+  }
+  if (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47 &&
+    buffer[4] === 0x0d &&
+    buffer[5] === 0x0a &&
+    buffer[6] === 0x1a &&
+    buffer[7] === 0x0a
+  ) {
+    return 'png'
+  }
+  if (
+    buffer.length >= 6 &&
+    buffer[0] === 0x47 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x38 &&
+    (buffer[4] === 0x39 || buffer[4] === 0x37) &&
+    buffer[5] === 0x61
+  ) {
+    return 'gif'
+  }
+  return 'jpeg'
+}
+
+interface GeminiFlashEditMultiImage {
+  url?: string
+  content_type?: string
+  file_name?: string
+  file_size?: number
+  width?: number
+  height?: number
+}
 
 interface GeminiFlashEditMultiResponse {
-  data: {
-    image: {
-      url: string
-      content_type: string
-      file_name: string
-      file_size: number
-      width: number
-      height: number
-    }
-    description: string
+  data?: {
+    image?: GeminiFlashEditMultiImage
+    description?: string
   }
+  image?: GeminiFlashEditMultiImage
+  description?: string
 }
 
 const nodeDef: NodeDefinition = {
@@ -99,23 +135,22 @@ geminiFlashEditMultiNode.execute = async ({ inputs, parameters, context }) => {
   context.sendStatus({ type: 'running', message: 'Processing input images...' })
 
   try {
-    // Resolve all input image assets and convert to data URLs
     const inputImageUrls: string[] = []
-    
+
     for (let i = 0; i < inputImages.length; i++) {
       const imageBuffer: Buffer = await resolveAsset(inputImages[i], { asBuffer: true }) as Buffer
-      const imageBase64 = imageBuffer.toString('base64')
-      const imageDataUrl = `data:image/jpeg;base64,${imageBase64}`
-      inputImageUrls.push(imageDataUrl)
-      
-      context.sendStatus({ 
-        type: 'running', 
-        message: `Processed image ${i + 1}/${inputImages.length}`,
+      const format = detectImageFormat(imageBuffer)
+      const uploadedUrl = await uploadBufferToFal(imageBuffer, format, { filenamePrefix: `gemini-flash-input-${i + 1}` })
+      inputImageUrls.push(uploadedUrl)
+
+      context.sendStatus({
+        type: 'running',
+        message: `Uploaded image ${i + 1}/${inputImages.length}`,
         progress: { step: (i + 1) * 20, total: 100 }
       })
     }
 
-    console.log(`Converted ${inputImageUrls.length} input images to data URLs`)
+    console.log(`Uploaded ${inputImageUrls.length} input images to Fal storage`)
 
     let stepCount = 0
     const expectedMs = 25000

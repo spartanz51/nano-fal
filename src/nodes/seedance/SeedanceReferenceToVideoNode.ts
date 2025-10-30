@@ -3,6 +3,7 @@ import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
 import { createSeedanceProgressStrategy } from './progress.js'
+import { uploadBufferToFal } from '../../utils/fal-storage.js'
 
 interface SeedanceVideoResponse {
   data?: {
@@ -59,10 +60,9 @@ const detectImageMime = (buffer: Buffer): string => {
   return 'jpeg'
 }
 
-const bufferToDataUrl = (buffer: Buffer): string => {
+const uploadBufferAsImageUrl = async (buffer: Buffer, filenamePrefix: string): Promise<string> => {
   const format = detectImageMime(buffer)
-  const base64 = buffer.toString('base64')
-  return `data:image/${format};base64,${base64}`
+  return uploadBufferToFal(buffer, format, { filenamePrefix })
 }
 
 const nodeDefinition: NodeDefinition = {
@@ -225,10 +225,11 @@ seedanceReferenceToVideoNode.execute = async ({ inputs, parameters, context }) =
 
     for (let index = 0; index < referenceUris.length; index += 1) {
       const buffer: Buffer = await resolveAsset(referenceUris[index], { asBuffer: true }) as Buffer
-      referenceImageUrls.push(bufferToDataUrl(buffer))
+      const uploadedUrl = await uploadBufferAsImageUrl(buffer, `seedance-reference-${index + 1}`)
+      referenceImageUrls.push(uploadedUrl)
       context.sendStatus({
         type: 'running',
-        message: `Prepared reference image ${index + 1}/${referenceUris.length}`,
+        message: `Uploaded reference image ${index + 1}/${referenceUris.length}`,
         progress: { step: Math.min(10 + (index + 1) * 5, 40), total: 100 }
       })
     }

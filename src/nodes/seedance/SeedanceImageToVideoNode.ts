@@ -3,6 +3,7 @@ import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
 import { createSeedanceProgressStrategy } from './progress.js'
+import { uploadBufferToFal } from '../../utils/fal-storage.js'
 
 interface SeedanceVideoResponse {
   data?: {
@@ -60,10 +61,9 @@ const detectImageMime = (buffer: Buffer): string => {
   return 'jpeg'
 }
 
-const bufferToDataUrl = (buffer: Buffer): string => {
+const uploadBufferAsImageUrl = async (buffer: Buffer, filenamePrefix: string): Promise<string> => {
   const format = detectImageMime(buffer)
-  const base64 = buffer.toString('base64')
-  return `data:image/${format};base64,${base64}`
+  return uploadBufferToFal(buffer, format, { filenamePrefix })
 }
 
 const nodeDefinition: NodeDefinition = {
@@ -230,12 +230,12 @@ seedanceImageToVideoNode.execute = async ({ inputs, parameters, context }) => {
 
   try {
     const primaryImageBuffer: Buffer = await resolveAsset(image, { asBuffer: true }) as Buffer
-    const primaryImageDataUrl = bufferToDataUrl(primaryImageBuffer)
+    const primaryImageUrl = await uploadBufferAsImageUrl(primaryImageBuffer, 'seedance-primary')
 
-    let endImageDataUrl: string | undefined
+    let endImageUrl: string | undefined
     if (endImage) {
       const endImageBuffer: Buffer = await resolveAsset(endImage, { asBuffer: true }) as Buffer
-      endImageDataUrl = bufferToDataUrl(endImageBuffer)
+      endImageUrl = await uploadBufferAsImageUrl(endImageBuffer, 'seedance-end')
     }
 
     const endpoint = modelVariant === 'pro'
@@ -244,7 +244,7 @@ seedanceImageToVideoNode.execute = async ({ inputs, parameters, context }) => {
 
     const requestPayload: any = {
       prompt,
-      image_url: primaryImageDataUrl,
+      image_url: primaryImageUrl,
       aspect_ratio: aspectRatio,
       resolution,
       duration,
@@ -252,8 +252,8 @@ seedanceImageToVideoNode.execute = async ({ inputs, parameters, context }) => {
       enable_safety_checker
     }
 
-    if (endImageDataUrl) {
-      requestPayload.end_image_url = endImageDataUrl
+    if (endImageUrl) {
+      requestPayload.end_image_url = endImageUrl
     }
 
     if (Number.isInteger(seedNumber) && seedNumber >= 0) {

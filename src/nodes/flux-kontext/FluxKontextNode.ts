@@ -3,6 +3,7 @@ import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { createProgressStrategy } from '../../utils/progress-strategy.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
+import { uploadBufferToFal } from '../../utils/fal-storage.js'
 
 interface FluxKontextImage {
   url?: string
@@ -232,8 +233,7 @@ fluxKontextNode.execute = async ({ inputs, parameters, context }) => {
 
   const imageBuffer = await resolveAsset(imageUri, { asBuffer: true }) as Buffer
   const detectedFormat = detectImageFormat(imageBuffer)
-  const base64Image = imageBuffer.toString('base64')
-  const imageDataUrl = `data:image/${detectedFormat};base64,${base64Image}`
+  const imageUrl = await uploadBufferToFal(imageBuffer, detectedFormat, { filenamePrefix: 'flux-kontext-source' })
 
   const payload: Record<string, unknown> = {
     prompt,
@@ -244,7 +244,7 @@ fluxKontextNode.execute = async ({ inputs, parameters, context }) => {
     aspect_ratio: aspectRatio,
     sync_mode: syncMode,
     enhance_prompt: enhancePrompt,
-    image_url: imageDataUrl
+    image_url: imageUrl
   }
 
   if (typeof seed === 'number') {

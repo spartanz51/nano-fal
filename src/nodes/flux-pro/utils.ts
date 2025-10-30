@@ -1,5 +1,6 @@
 import { resolveAsset, uploadAsset } from '@nanograph/sdk'
 import { Readable } from 'node:stream'
+import { uploadBufferToFal } from '../../utils/fal-storage.js'
 
 export interface FalImageReference {
   url?: string
@@ -41,10 +42,9 @@ export const detectImageFormat = (buffer: Buffer): 'jpeg' | 'png' | 'webp' => {
   return 'jpeg'
 }
 
-export const bufferToDataUrl = (buffer: Buffer, format?: 'jpeg' | 'png' | 'webp'): string => {
+export const bufferToDataUrl = async (buffer: Buffer, format?: 'jpeg' | 'png' | 'webp'): Promise<string> => {
   const detected = format ?? detectImageFormat(buffer)
-  const base64 = buffer.toString('base64')
-  return `data:image/${detected};base64,${base64}`
+  return uploadBufferToFal(buffer, detected, { filenamePrefix: 'flux-pro-source' })
 }
 
 export const assetToDataUrl = async (uri: string): Promise<string> => {

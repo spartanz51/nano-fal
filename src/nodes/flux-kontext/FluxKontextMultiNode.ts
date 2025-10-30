@@ -3,6 +3,7 @@ import { QueueStatus } from '@fal-ai/client'
 import { configureFalClient, fal } from '../../utils/fal-client.js'
 import { createProgressStrategy } from '../../utils/progress-strategy.js'
 import { getParameterValue } from '../../utils/parameter-utils.js'
+import { uploadBufferToFal } from '../../utils/fal-storage.js'
 
 interface FluxKontextImage {
   url?: string
@@ -254,11 +255,10 @@ fluxKontextMultiNode.execute = async ({ inputs, parameters, context }) => {
 
   context.sendStatus({ type: 'running', message: 'Preparing reference images...' })
 
-  const imageDataUrls = await Promise.all(imageUris.map(async (uri) => {
+  const imageUrls = await Promise.all(imageUris.map(async (uri, index) => {
     const buffer = await resolveAsset(uri, { asBuffer: true }) as Buffer
     const format = detectImageFormat(buffer)
-    const base64 = buffer.toString('base64')
-    return `data:image/${format};base64,${base64}`
+    return uploadBufferToFal(buffer, format, { filenamePrefix: `flux-kontext-ref-${index + 1}` })
   }))
 
   const payload: Record<string, unknown> = {
@@ -270,7 +270,7 @@ fluxKontextMultiNode.execute = async ({ inputs, parameters, context }) => {
     aspect_ratio: aspectRatio,
     sync_mode: syncMode,
     enhance_prompt: enhancePrompt,
-    image_urls: imageDataUrls
+    image_urls: imageUrls
   }
 
   if (typeof seed === 'number') {
