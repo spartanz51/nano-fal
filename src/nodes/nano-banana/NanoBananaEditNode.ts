@@ -148,6 +148,26 @@ const nodeDefinition: NodeDefinition = {
       default: false,
       label: 'Sync Mode',
       description: 'Return inline images instead of URLs (Fal API option)'
+    },
+    {
+      name: 'aspect_ratio',
+      type: 'select',
+      value: '1:1',
+      default: '1:1',
+      label: 'Aspect Ratio',
+      description: 'Aspect ratio for generated images',
+      options: [
+        { label: '21:9', value: '21:9' },
+        { label: '1:1', value: '1:1' },
+        { label: '4:3', value: '4:3' },
+        { label: '3:2', value: '3:2' },
+        { label: '2:3', value: '2:3' },
+        { label: '5:4', value: '5:4' },
+        { label: '4:5', value: '4:5' },
+        { label: '3:4', value: '3:4' },
+        { label: '16:9', value: '16:9' },
+        { label: '9:16', value: '9:16' }
+      ]
     }
   ]
 }
@@ -179,6 +199,7 @@ nanoBananaEditNode.execute = async ({ inputs, parameters, context }) => {
   const requestedFormat = String(getParameterValue(parameters, 'output_format', 'jpeg'))
   const outputFormat = allowedFormats.has(requestedFormat) ? requestedFormat : 'jpeg'
   const syncMode = Boolean(getParameterValue(parameters, 'sync_mode', false))
+  const aspectRatio = String(getParameterValue(parameters, 'aspect_ratio', '1:1'))
 
   context.sendStatus({ type: 'running', message: 'Preparing input images...' })
 
@@ -204,7 +225,8 @@ nanoBananaEditNode.execute = async ({ inputs, parameters, context }) => {
       image_urls: imageDataUrls,
       num_images: numImages,
       output_format: outputFormat,
-      sync_mode: syncMode
+      sync_mode: syncMode,
+      aspect_ratio: aspectRatio
     }
 
     let stepCount = 0
